@@ -1,6 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/home_screen.dart';
+import 'config/theme.dart';
+import 'screens/root_screen.dart';
+
+final GoRouter _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const RootScreen(),
+    ),
+  ],
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -8,7 +21,7 @@ void main() async {
     url: const String.fromEnvironment('SUPABASE_URL'),
     anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
   );
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -16,9 +29,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: const HomeScreen(),
-      theme: ThemeData.dark(useMaterial3: true),
+    return MaterialApp.router(
+      title: 'Spesafy',
+      theme: AppTheme.light,
+      routerConfig: _router,
     );
   }
 }
