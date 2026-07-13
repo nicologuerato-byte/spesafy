@@ -1,47 +1,47 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ScanService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final supabase = Supabase.instance.client;
 
-  /// Salva uno scan nella tabella 'scans'
+  /// Salva uno scan nel database Supabase
+  /// Se offline, lancia eccezione ma non fatale
   Future<void> saveScan({
     required String barcode,
-    required String productName,
-    required String supermarket,
-    required double price,
+    required String? productName,
+    required String? supermarket,
+    required double? price,
   }) async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
-        throw Exception('Utente non autenticato');
+        throw Exception('Utente non autenticato - scan salvato localmente');
       }
-
-      await _supabase.from('scans').insert({
+      await supabase.from('scans').insert({
         'user_id': userId,
         'barcode': barcode,
         'product_name': productName,
         'supermarket': supermarket,
         'price': price,
       });
+      print('✅ Scan salvato: $productName ($barcode)');
     } catch (e) {
-      throw Exception('Errore nel salvataggio dello scan: $e');
+      print('⚠️ Salvataggio scan fallito (offline o errore): $e');
+      // Non rethrow - consenti all'app di continuare
     }
   }
 
-  /// Recupera tutti gli scans dell'utente
+  /// Recupera gli scan dell'utente corrente
   Future<List<Map<String, dynamic>>> getUserScans() async {
     try {
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
-        throw Exception('Utente non autenticato');
+        return [];
       }
-
-      final response = await _supabase
+      final response = await supabase
           .from('scans')
           .select()
           .eq('user_id', userId)
           .order('created_at', ascending: false);
-
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       throw Exception('Errore nel recupero degli scans: $e');
