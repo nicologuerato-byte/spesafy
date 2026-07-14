@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'savings_screen.dart';
 import 'alternatives_screen.dart';
 import 'scan_screen.dart';
-import 'summary_screen.dart';
 import 'search_screen.dart';
+import 'summary_screen.dart';
+import 'savings_screen.dart';
 
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
@@ -13,50 +13,47 @@ class RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<RootScreen> {
-  int _currentIndex = 0;
+  int _selectedIndex = 0;
 
-  static const List<Widget> _screens = [
-    SavingsScreen(),
-    AlternativesScreen(),
-    ScanScreen(),
-    SummaryScreen(),
-    SearchScreen(),
+  final List<Widget> _screens = [
+    const SavingsScreen(),
+    const AlternativesScreen(),
+    const ScanScreen(),
+    const SummaryScreen(),
+    const SearchScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
+        backgroundColor: Colors.white,
+        onTap: (index) {
+          setState(() => _selectedIndex = index);
+        },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.savings_outlined),
-            activeIcon: Icon(Icons.savings),
+            icon: Icon(Icons.wallet),
             label: 'Soldi',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.swap_horiz_outlined),
-            activeIcon: Icon(Icons.swap_horiz),
+            icon: Icon(Icons.swap_horiz),
             label: 'Alternative',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            activeIcon: Icon(Icons.qr_code_scanner),
+            icon: Icon(Icons.qr_code_scanner),
             label: 'Scansiona',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
+            icon: Icon(Icons.summarize),
             label: 'Sintesi',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.search_outlined),
-            activeIcon: Icon(Icons.search),
+            icon: Icon(Icons.search),
             label: 'Cerca',
           ),
         ],

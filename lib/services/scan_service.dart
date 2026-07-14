@@ -1,21 +1,44 @@
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/scan_model.dart';
 
 class ScanService {
   final supabase = Supabase.instance.client;
+  late Box<ScanModel> scansBox;
 
-  /// Salva uno scan nel database Supabase
-  /// Se offline, lancia eccezione ma non fatale
+  ScanService() {
+    _initBox();
+  }
+
+  Future<void> _initBox() async {
+    scansBox = await Hive.openBox<ScanModel>('scans');
+  }
+
+  /// Salva uno scan: prima tenta Supabase, poi fallback Hive
   Future<void> saveScan({
     required String barcode,
     required String? productName,
     required String? supermarket,
     required double? price,
   }) async {
+    final scan = ScanModel(
+      barcode: barcode,
+      productName: productName,
+      supermarket: supermarket,
+      price: price,
+      synced: false,
+    );
+
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
-        throw Exception('Utente non autenticato - scan salvato localmente');
+        // Salva offline
+        await scansBox.add(scan);
+        print('⚠️ Salvo localmente (non autenticato): $productName');
+        return;
       }
+
+      // Tenta Supabase
       await supabase.from('scans').insert({
         'user_id': userId,
         'barcode': barcode,
@@ -23,45 +46,69 @@ class ScanService {
         'supermarket': supermarket,
         'price': price,
       });
-      print('✅ Scan salvato: $productName ($barcode)');
+      print('✅ Scan sincronizzato: $productName ($barcode)');
     } catch (e) {
-      print('⚠️ Salvataggio scan fallito (offline o errore): $e');
-      // Non rethrow - consenti all'app di continuare
+      // Fallback: salva localmente
+      await scansBox.add(scan);
+      print('⚠️ Salvo offline: $productName (errore: $e)');
     }
   }
 
-  /// Recupera gli scan dell'utente corrente
-  Future<List<Map<String, dynamic>>> getUserScans() async {
+  /// Recupera scans: prima Hive (veloce), poi Supabase
+  Future<List<ScanModel>> getAllScans() async {
+    // Ritorna quelli locali per ora
+    return scansBox.values.toList().reversed.toList();
+  }
+
+  /// Sincronizza scans offline con Supabase
+  Future<void> syncScans() async {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
-        return [];
+        print('❌ Non autenticato, sync non possibile');
+        return;
       }
-      final response = await supabase
-          .from('scans')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response);
+
+      final unsynced = scansBox.values.where((s) => !s.synced).toList();
+      for (var scan in unsynced) {
+        try {
+          await supabase.from('scans').insert({
+            'user_id': userId,
+            'barcode': scan.barcode,
+            'product_name': scan.productName,
+            'supermarket': scan.supermarket,
+            'price': scan.price,
+          });
+          scan.synced = true;
+          await scan.save();
+          print('✅ Sincronizzato: ${scan.productName}');
+        } catch (e) {
+          print('⚠️ Sync fallito per ${scan.barcode}: $e');
+        }
+      }
     } catch (e) {
-      throw Exception('Errore nel recupero degli scans: $e');
+      print('❌ Errore sync: $e');
     }
   }
 
-  /// Calcola il totale dei risparmi per l'utente
+  /// Calcola totale risparmi
   Future<double> getTotalSavings() async {
-    try {
-      final scans = await getUserScans();
-      double total = 0;
-      for (var scan in scans) {
-        final price = scan['price'];
-        if (price != null) {
-          total += (price as num).toDouble();
-        }
+    double total = 0;
+    for (var scan in scansBox.values) {
+      if (scan.price != null) {
+        total += scan.price!;
       }
-      return total;
-    } catch (e) {
-      throw Exception('Errore nel calcolo dei risparmi: $e');
     }
+    return total;
+  }
+
+  /// Cancella uno scan
+  Future<void> deleteScan(int index) async {
+    await scansBox.deleteAt(index);
+  }
+
+  /// Pulisci tutti i dati locali
+  Future<void> clearAll() async {
+    await scansBox.clear();
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'models/scan_model.dart';
 import 'screens/root_screen.dart';
 
 Future<void> main() async {
@@ -10,13 +12,17 @@ Future<void> main() async {
   // Load .env
   await dotenv.load(fileName: '.env');
   
+  // Hive init
+  await Hive.initFlutter();
+  Hive.registerAdapter(ScanModelAdapter());
+  
   // Init Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
   
-  // Init Anonymous Auth (non-critical - continua anche se fallisce)
+  // Init Anonymous Auth
   await _initAnonymousAuth();
   
   runApp(const ProviderScope(child: MyApp()));
@@ -28,13 +34,10 @@ Future<void> _initAnonymousAuth() async {
     final session = supabase.auth.currentSession;
     if (session == null) {
       await supabase.auth.signInAnonymously();
-      print('✅ Anonymous Auth completato');
-    } else {
-      print('✅ Sessione esistente riutilizzata');
     }
+    print('✅ Auth anonima OK');
   } catch (e) {
     print('⚠️ Auth anonima non disponibile (offline): $e');
-    // Non rethrow - consenti all'app di continuare anche senza connessione
   }
 }
 

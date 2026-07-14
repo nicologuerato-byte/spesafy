@@ -5,9 +5,9 @@ final scanServiceProvider = Provider((ref) {
   return ScanService();
 });
 
-final userScansProvider = FutureProvider((ref) async {
+final allScansProvider = FutureProvider((ref) async {
   final scanService = ref.watch(scanServiceProvider);
-  return scanService.getUserScans();
+  return scanService.getAllScans();
 });
 
 final totalSavingsProvider = FutureProvider((ref) async {
