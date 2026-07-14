@@ -4,15 +4,8 @@ import '../models/scan_model.dart';
 
 class ScanService {
   final supabase = Supabase.instance.client;
-  late Box<ScanModel> scansBox;
 
-  ScanService() {
-    _initBox();
-  }
-
-  Future<void> _initBox() async {
-    scansBox = await Hive.openBox<ScanModel>('scans');
-  }
+  Box<ScanModel> get scansBox => Hive.box<ScanModel>('scans');
 
   /// Salva uno scan: prima tenta Supabase, poi fallback Hive
   Future<void> saveScan({
@@ -32,13 +25,11 @@ class ScanService {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
-        // Salva offline
         await scansBox.add(scan);
         print('⚠️ Salvo localmente (non autenticato): $productName');
         return;
       }
 
-      // Tenta Supabase
       await supabase.from('scans').insert({
         'user_id': userId,
         'barcode': barcode,
@@ -48,15 +39,13 @@ class ScanService {
       });
       print('✅ Scan sincronizzato: $productName ($barcode)');
     } catch (e) {
-      // Fallback: salva localmente
       await scansBox.add(scan);
       print('⚠️ Salvo offline: $productName (errore: $e)');
     }
   }
 
-  /// Recupera scans: prima Hive (veloce), poi Supabase
+  /// Recupera scans
   Future<List<ScanModel>> getAllScans() async {
-    // Ritorna quelli locali per ora
     return scansBox.values.toList().reversed.toList();
   }
 
@@ -100,15 +89,5 @@ class ScanService {
       }
     }
     return total;
-  }
-
-  /// Cancella uno scan
-  Future<void> deleteScan(int index) async {
-    await scansBox.deleteAt(index);
-  }
-
-  /// Pulisci tutti i dati locali
-  Future<void> clearAll() async {
-    await scansBox.clear();
   }
 }

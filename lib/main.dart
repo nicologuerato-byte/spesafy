@@ -15,6 +15,7 @@ Future<void> main() async {
   // Hive init
   await Hive.initFlutter();
   Hive.registerAdapter(ScanModelAdapter());
+  await Hive.openBox<ScanModel>('scans');
   
   // Init Supabase
   await Supabase.initialize(

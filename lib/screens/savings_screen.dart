@@ -10,26 +10,10 @@ class SavingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scansAsyncValue = ref.watch(allScansProvider);
-    final scanService = ref.watch(scanServiceProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Soldi'),
-        actions: [
-          // Pulsante Sync
-          IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: () async {
-              await scanService.syncScans();
-              await ref.refresh(allScansProvider.future);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✅ Sincronizzazione completata')),
-                );
-              }
-            },
-          ),
-        ],
       ),
       body: scansAsyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -91,7 +75,6 @@ class SavingsScreen extends ConsumerWidget {
 
 class _TotalSavingsCard extends StatelessWidget {
   final double total;
-
   const _TotalSavingsCard({required this.total});
 
   @override
@@ -134,12 +117,7 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _StatCard({required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +144,6 @@ class _StatCard extends StatelessWidget {
 
 class _RecentScanTile extends StatelessWidget {
   final ScanModel scan;
-
   const _RecentScanTile({required this.scan});
 
   @override
