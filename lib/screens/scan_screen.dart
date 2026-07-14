@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../services/scan_service.dart';
 
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key});
+  const ScanScreen({Key? key}) : super(key: key);
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -10,12 +11,14 @@ class ScanScreen extends StatefulWidget {
 
 class _ScanScreenState extends State<ScanScreen> {
   late MobileScannerController _controller;
+  late ScanService _scanService;
   bool _isScanningPaused = false;
 
   @override
   void initState() {
     super.initState();
     _controller = MobileScannerController();
+    _scanService = ScanService();
   }
 
   @override
@@ -24,14 +27,24 @@ class _ScanScreenState extends State<ScanScreen> {
     super.dispose();
   }
 
-  void _handleScannedProduct(String barcode) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Scan salvato: $barcode'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
+  void _handleScannedProduct(String barcode) async {
+    // Salva con ScanService (offline-first)
+    await _scanService.saveScan(
+      barcode: barcode,
+      productName: 'Prodotto $barcode',
+      supermarket: null,
+      price: null,
     );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Scan salvato: $barcode'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -50,12 +63,11 @@ class _ScanScreenState extends State<ScanScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // HEADER
               Container(
                 color: Colors.green,
                 padding: const EdgeInsets.all(16),
                 child: const Text(
-                  'Barcode rilevato',
+                  'Barcode Rilevato',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -63,7 +75,6 @@ class _ScanScreenState extends State<ScanScreen> {
                   ),
                 ),
               ),
-              // CONTENT
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -73,61 +84,34 @@ class _ScanScreenState extends State<ScanScreen> {
                     Text(
                       'Codice: $code',
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Nome: (da API)',
-                            style: TextStyle(fontSize: 12, color: Colors.black),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Supermercato: (da API)',
-                            style: TextStyle(fontSize: 12, color: Colors.black),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Prezzo: (da API)',
-                            style: TextStyle(fontSize: 12, color: Colors.black),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Vuoi salvare questo scan?',
+                      style: TextStyle(fontSize: 14),
                     ),
                   ],
                 ),
               ),
-              // ACTIONS
               Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    TextButton(
+                    ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
                         setState(() => _isScanningPaused = false);
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.black,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
                       ),
-                      child: const Text(
-                        'Annulla',
-                        style: TextStyle(color: Colors.black, fontSize: 14),
-                      ),
+                      child: const Text('Annulla'),
                     ),
-                    const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
@@ -137,15 +121,8 @@ class _ScanScreenState extends State<ScanScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
                       ),
-                      child: const Text(
-                        'Salva',
-                        style: TextStyle(color: Colors.white, fontSize: 14),
-                      ),
+                      child: const Text('Salva'),
                     ),
                   ],
                 ),
