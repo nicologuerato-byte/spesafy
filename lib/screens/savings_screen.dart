@@ -1,71 +1,98 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
+import '../models/scan_model.dart';
+import '../providers/scan_provider.dart';
 
-class _ScanEntry {
-  final String product;
-  final String store;
-  final double saved;
-
-  const _ScanEntry({
-    required this.product,
-    required this.store,
-    required this.saved,
-  });
-}
-
-const List<_ScanEntry> _mockRecentScans = [
-  _ScanEntry(product: 'Pasta Barilla 500g', store: 'Esselunga', saved: 0.35),
-  _ScanEntry(product: 'Latte Parmalat 1L', store: 'Carrefour', saved: 0.20),
-  _ScanEntry(product: 'Olio EVO Monini 1L', store: 'Conad', saved: 1.80),
-  _ScanEntry(product: 'Caffè Lavazza 250g', store: 'Esselunga', saved: 0.90),
-  _ScanEntry(product: 'Detersivo Dash 1.5L', store: 'Lidl', saved: 1.10),
-];
-
-class SavingsScreen extends StatelessWidget {
+class SavingsScreen extends ConsumerWidget {
   const SavingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scansAsyncValue = ref.watch(allScansProvider);
+    final scanService = ref.watch(scanServiceProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Soldi'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _TotalSavingsCard(),
-          const SizedBox(height: 16),
-          const Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.qr_code_scanner,
-                  label: 'Scansioni',
-                  value: '18',
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                  icon: Icons.trending_up,
-                  label: 'Risparmio medio',
-                  value: '€0.69',
-                ),
-              ),
-            ],
+        actions: [
+          // Pulsante Sync
+          IconButton(
+            icon: const Icon(Icons.sync),
+            onPressed: () async {
+              await scanService.syncScans();
+              await ref.refresh(allScansProvider.future);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✅ Sincronizzazione completata')),
+                );
+              }
+            },
           ),
-          const SizedBox(height: 24),
-          const Text('Scansioni recenti', style: AppTypography.titleMedium),
-          const SizedBox(height: 12),
-          ..._mockRecentScans.map((scan) => _RecentScanTile(scan: scan)),
         ],
+      ),
+      body: scansAsyncValue.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Errore: $err')),
+        data: (scans) {
+          final totalSaved = scans.fold<double>(
+            0,
+            (sum, scan) => sum + (scan.price ?? 0),
+          );
+          final avgSaved =
+              scans.isEmpty ? 0.0 : totalSaved / scans.length;
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _TotalSavingsCard(total: totalSaved),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.qr_code_scanner,
+                      label: 'Scansioni',
+                      value: '${scans.length}',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.trending_up,
+                      label: 'Risparmio medio',
+                      value: '€${avgSaved.toStringAsFixed(2)}',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Text('Scansioni recenti',
+                  style: AppTypography.titleMedium),
+              const SizedBox(height: 12),
+              if (scans.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'Nessuno scan ancora. Inizia a scansionare!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              else
+                ...scans.map((scan) => _RecentScanTile(scan: scan)),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
 class _TotalSavingsCard extends StatelessWidget {
-  const _TotalSavingsCard();
+  final double total;
+
+  const _TotalSavingsCard({required this.total});
 
   @override
   Widget build(BuildContext context) {
@@ -76,25 +103,25 @@ class _TotalSavingsCard extends StatelessWidget {
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Risparmio totale',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            '€12.47',
-            style: TextStyle(
+            '€${total.toStringAsFixed(2)}',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 40,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            'questo mese',
+          const SizedBox(height: 4),
+          const Text(
+            'da tutti gli scan',
             style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
         ],
@@ -138,7 +165,7 @@ class _StatCard extends StatelessWidget {
 }
 
 class _RecentScanTile extends StatelessWidget {
-  final _ScanEntry scan;
+  final ScanModel scan;
 
   const _RecentScanTile({required this.scan});
 
@@ -169,13 +196,19 @@ class _RecentScanTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(scan.product, style: AppTypography.bodyLarge),
-                Text(scan.store, style: AppTypography.caption),
+                Text(
+                  scan.productName ?? 'Prodotto ${scan.barcode}',
+                  style: AppTypography.bodyLarge,
+                ),
+                Text(
+                  scan.supermarket ?? 'Non specificato',
+                  style: AppTypography.caption,
+                ),
               ],
             ),
           ),
           Text(
-            '+€${scan.saved.toStringAsFixed(2)}',
+            '+€${(scan.price ?? 0).toStringAsFixed(2)}',
             style: const TextStyle(
               color: AppColors.success,
               fontWeight: FontWeight.w600,
